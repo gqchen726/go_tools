@@ -1,0 +1,32 @@
+# Go 编译产生的可执行文件
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Go 编译产生的临时文件
+*.o
+*.a
+*.obj
+*.lib
+*.test
+*.prof
+
+# Go 编译产生的测试覆盖率文件
+*.cover
+*.out
+
+# Go 依赖管理工具产生的目录
+/vendor/
+/Godeps/
+/_vendor/
+
+# IDE 或编辑器产生的配置文件或目录
+.idea/
+.vscode/
+*.sublime-*
+*.swp
+
+# 日志文件
+/log/
