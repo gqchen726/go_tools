@@ -3,6 +3,8 @@ package main
 import (
 	"go_tools/tools"
 	"os"
+
+	"github.com/sirupsen/logrus"
 )
 
 // func main() {
@@ -47,5 +49,12 @@ func main() {
 	var basePath string = userHome + "\\Documents"
 	var inFilePath string = basePath + "\\json-in.json"
 	var outFilePath string = basePath + "\\json-out.json"
+	var errorFilePath string = basePath + "\\json-error.log"
+	logFile, err := os.OpenFile(errorFilePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0666)
+	if err != nil {
+		panic(err)
+	}
+	logrus.SetOutput(logFile)
+	logrus.SetLevel(logrus.DebugLevel)
 	tools.JsonFormatFromFile(inFilePath, outFilePath)
 }

@@ -8,43 +8,51 @@ import (
 	"os"
 	"regexp"
 	"strings"
-	"unicode/utf8"
+
+	"github.com/sirupsen/logrus"
 )
 
 func JsonFormatFromConsole(jsonStr string) string {
 	// 使用正则表达式判断字符传的加密类型是否为base64
 	regex := regexp.MustCompile(`^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{4})$`)
 	if regex.MatchString(jsonStr) {
-		fmt.Println("字符串符合Base64编码规则")
+		logrus.Info("字符串符合Base64编码规则")
 		// base64解码
 		decodeBytes, err := base64.StdEncoding.DecodeString(jsonStr)
 		if err != nil {
-			fmt.Println("base64解码失败:", err)
+			logrus.Error("base64解码失败:", err)
 		}
 		jsonStr = string(decodeBytes)
 	}
+	logrus.Debug("base64解码后的jsonStr: ", jsonStr)
 	// 处理字符串中可能有的base64字符串片段
-	base64SubStringRegex := regexp.MustCompile(`[A-Za-z0-9+/]+={1,2}`)
-	encodedStrings := base64SubStringRegex.FindAllString(jsonStr, -1)
-	// 遍历encodedStrings
-	for _, encodedString := range encodedStrings {
-		// base64解码
-		decodeBytes, err := base64.StdEncoding.DecodeString(encodedString)
-		if err == nil {
-			// base64解码后的字符串
-			jsonStrByDecode := string(decodeBytes)
-			jsonStrByDecode = strings.ReplaceAll(jsonStrByDecode, `"`, `\"`)
-			jsonStrByDecode = strings.ReplaceAll(jsonStrByDecode, `{`, `"{`)
-			// jsonStrByDecode = strings.ReplaceAll(jsonStrByDecode, `}`, `}"`)
-			jsonStrByDecode = strings.ReplaceAll(jsonStrByDecode, `[`, `"[`)
-			jsonStrByDecode = strings.ReplaceAll(jsonStrByDecode, `]`, `]"`)
-			// 替换字符串
-			// fmt.Println("encodedString: ", encodedString, "jsonStrByDecode: ", jsonStrByDecode)
-			if utf8.ValidString(jsonStrByDecode) {
-				jsonStr = strings.ReplaceAll(jsonStr, encodedString, jsonStrByDecode)
-			}
-		}
-	}
+	// todo: 正则表达式待优化
+	// base64SubStringRegex := regexp.MustCompile(`"[A-Za-z0-9+/]+={0,1,2}"`)
+	// // base64SubStringRegex := regexp.MustCompile(`^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}(?:==|=)?|[A-Za-z0-9+/]{3}=?|[A-Za-z0-9+/]{4})$`)
+	// encodedStrings := base64SubStringRegex.FindAllString(jsonStr, -1)
+	// fmt.Println(encodedStrings)
+	// // 遍历encodedStrings
+	// for _, encodedString := range encodedStrings {
+	// 	// base64解码
+	// 	decodeBytes, err := base64.StdEncoding.DecodeString(encodedString)
+	// 	if err == nil {
+	// 		// base64解码后的字符串
+	// 		jsonStrByDecode := string(decodeBytes)
+	// 		jsonStrByDecode = strings.ReplaceAll(jsonStrByDecode, `"`, `\"`)
+	// 		jsonStrByDecode = strings.ReplaceAll(jsonStrByDecode, `{`, `"{`)
+	// 		// jsonStrByDecode = strings.ReplaceAll(jsonStrByDecode, `}`, `}"`)
+	// 		jsonStrByDecode = strings.ReplaceAll(jsonStrByDecode, `[`, `"[`)
+	// 		jsonStrByDecode = strings.ReplaceAll(jsonStrByDecode, `]`, `]"`)
+	// 		// 替换字符串
+	// 		// fmt.Println("encodedString: ", encodedString, "jsonStrByDecode: ", jsonStrByDecode)
+	// 		if utf8.ValidString(jsonStrByDecode) {
+	// 			// fmt.Println(jsonStrByDecode)
+	// 			jsonStr = strings.ReplaceAll(jsonStr, encodedString, jsonStrByDecode)
+	// 			// fmt.Println(jsonStr)
+	// 		}
+	// 	}
+	// }
+	// fmt.Println(jsonStr)
 	s := strings.ReplaceAll(jsonStr, `\"`, `"`)
 	s = strings.ReplaceAll(s, `"{`, `{`)
 	s = strings.ReplaceAll(s, `}"`, `}`)
@@ -52,26 +60,46 @@ func JsonFormatFromConsole(jsonStr string) string {
 	s = strings.ReplaceAll(s, `"}"`, `"}`)
 	s = strings.ReplaceAll(s, `"[{`, `[{`)
 	s = strings.ReplaceAll(s, `}]"`, `}]`)
+	logrus.Debug("jsonStr-反义字符替换后: ", s)
 	return s
 }
 
 func JsonFormatFromConsoleForPrettyJson(jsonStr string) []byte {
-	// 使用正则表达式校验jsonStr是否为json格式
-	regex := regexp.MustCompile(`^\s*{.*}\s*$`)
-	if !regex.MatchString(jsonStr) {
-		fmt.Println("不是json格式字符串")
-		return nil
-	}
 	// 使用json格式化json格式数据s
 	s := JsonFormatFromConsole(jsonStr)
+	// 使用正则表达式校验jsonStr是否为json格式
+	regex := regexp.MustCompile(`^\s*{.*}\s*$`)
+	if !regex.MatchString(s) {
+		fmt.Println("不是json格式字符串")
+		logrus.Debug("不是json格式字符串: ", s)
+		return nil
+	}
 	// 解析JSON字符串
-	var data interface{}
+	var data map[string]interface{}
 	err := json.Unmarshal([]byte(s), &data)
 	if err != nil {
-		fmt.Println("解析JSON失败:", err)
-		fmt.Println("JSONString:", s)
+		logrus.Error("解析JSON字符串失败: ", err, ", JSON字符串: ", s)
 	}
-
+	base64Regex := `^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}(?:==|=)?|[A-Za-z0-9+/]{3}=?|[A-Za-z0-9+/]{4})$`
+	base64Regexp, err := regexp.Compile(base64Regex)
+	if err != nil {
+		logrus.Error("编译正则表达式失败: ", err)
+	}
+	for key, value := range data {
+		if str, ok := value.(string); ok {
+			match := base64Regexp.MatchString(str)
+			if match {
+				decoded, err := base64.StdEncoding.DecodeString(str)
+				if err != nil {
+					logrus.Debug("base64解码失败: ", err)
+					logrus.Debug("base64字符串: ", str)
+				} else {
+					fmt.Printf("键 %s 的值是base64编码的数据, 解码后的数据为: %s\n", key, string(decoded))
+					data[key] = string(decoded)
+				}
+			}
+		}
+	}
 	// 格式化JSON
 	prettyJSON, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
@@ -80,7 +108,7 @@ func JsonFormatFromConsoleForPrettyJson(jsonStr string) []byte {
 	return prettyJSON
 }
 
-func JsonFormatFromConsoleForPrettyJsonString(jsonStr string) string {
+func JsonFormatFromConsoleForPrettyJsonString(jsonStr string, errorFilePath string) string {
 	return string(JsonFormatFromConsoleForPrettyJson(jsonStr))
 }
 
